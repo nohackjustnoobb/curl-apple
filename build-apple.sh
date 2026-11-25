@@ -14,7 +14,7 @@ if [ -z "$1" ]; then
     exit 1
 fi
 
-OPENSSL_VERSION="openssl-3.6.0"
+OPENSSL_VERSION="openssl-4.1.0"
 LIBSSH2_VERSION="1.11.1"
 
 VERSION=$1
