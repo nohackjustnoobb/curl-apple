@@ -14,7 +14,7 @@ permissions:
 jobs:
   query:
     name: "Check for updates"
-    runs-on: macos-14
+    runs-on: macos-15
     outputs:
       curl_version: ${{ steps.query.outputs.curl_version }}
       needs_update: ${{ steps.query.outputs.needs_update }}
@@ -25,28 +25,30 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           LATEST_OFFICIAL_CURL_RELEASE=$(curl -sS https://curl.se/info | grep 'Version:' | cut -d ' ' -f2)
-          LATEST_CURL_APPLE_RELEASE=$(gh api /repos/greatfire/curl-apple/releases/latest --jq '.name')
           if [ -z "$LATEST_OFFICIAL_CURL_RELEASE" ]; then
             echo "::error ::Unable to determine latest curl version, aborting run"
             exit 1
           fi
-          if [ -z "$LATEST_CURL_APPLE_RELEASE" ]; then
-            echo "::error ::Unable to determine last published framework version, aborting run"
-            exit 1
-          fi
-          echo "::notice ::Latest curl release: ${LATEST_OFFICIAL_CURL_RELEASE}, last published framework: ${LATEST_CURL_APPLE_RELEASE}"
-          echo "curl_version=${LATEST_OFFICIAL_CURL_RELEASE}" >> $GITHUB_OUTPUT
+          LATEST_CURL_APPLE_RELEASE=$(gh api graphql \
+            -f query='query($owner: String!, $name: String!) {
+              repository(owner: $owner, name: $name) { latestRelease { tagName } }
+            }' \
+            -f owner="${GITHUB_REPOSITORY%/*}" \
+            -f name="${GITHUB_REPOSITORY#*/}" \
+            --jq '.data.repository.latestRelease.tagName // empty')
+          echo "::notice ::Latest curl release: ${LATEST_OFFICIAL_CURL_RELEASE}, last published framework: ${LATEST_CURL_APPLE_RELEASE:-none}"
+          echo "curl_version=${LATEST_OFFICIAL_CURL_RELEASE}" >> "$GITHUB_OUTPUT"
           if [[ "${LATEST_CURL_APPLE_RELEASE}" != "${LATEST_OFFICIAL_CURL_RELEASE}" ]]; then
-            echo "needs_update=yes" >> $GITHUB_OUTPUT
+            echo "needs_update=yes" >> "$GITHUB_OUTPUT"
           else
-            echo "needs_update=no" >> $GITHUB_OUTPUT
+            echo "needs_update=no" >> "$GITHUB_OUTPUT"
           fi
-          cat $GITHUB_OUTPUT
+          cat "$GITHUB_OUTPUT"
   update:
     name: "Compile"
     needs: query
     if: needs.query.outputs.needs_update == 'yes'
-    runs-on: macos-14
+    runs-on: macos-15
     outputs:
       framework_checksum: ${{ steps.prepare.outputs.framework_checksum }}
     steps:
