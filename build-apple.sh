@@ -290,6 +290,7 @@ create_framework() {
     cp -r "${HEADERS[@]}" "$BUILDDIR/$SDK/curl.framework/Headers"
 
     cp "$BUILDDIR/cacert.pem" "$BUILDDIR/$SDK/curl.framework/Resources"
+    cp "$BUILDDIR/libcurl/COPYING" "$BUILDDIR/$SDK/curl.framework/Resources/curl-LICENSE.txt"
     if [ "$WITH_LIBSSH2" = 1 ]; then
         cp "$BUILDDIR/libssh2/COPYING" "$BUILDDIR/$SDK/curl.framework/Resources/libssh2-LICENSE.txt"
     fi
