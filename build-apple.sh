@@ -20,7 +20,7 @@ LIBSSH2_VERSION="1.11.1"
 VERSION=$1
 shift
 WITH_LIBSSH2=1
-BUILD_ARGS=(--disable-shared --enable-static --without-libpsl --without-libidn2 --without-nghttp2)
+BUILD_ARGS=(--disable-shared --enable-static --with-apple-sectrust --without-libpsl --without-libidn2 --without-nghttp2)
 for ARG in "$@"; do
     case "$ARG" in
         --without-libssh2) WITH_LIBSSH2=0 ;;
@@ -163,13 +163,6 @@ build_libcurl() (
         gpg --verify "$ARCHIVE.asc" "$ARCHIVE" >/dev/null || exit
     fi
 
-    # https://curl.se/docs/caextract.html
-    CERTS="$BUILDDIR/cacert.pem"
-    if [ ! -f "$CERTS" ]; then
-        echo "- Download cacert file"
-        curl -fsSL "https://curl.se/ca/cacert.pem" -o "$CERTS"
-    fi
-
     echo "- Build libcurl for $ARCH ($PLATFORM)"
 
     # curl build writes compiled files into source dir, so clean up, by removing and unpacking again.
@@ -289,7 +282,16 @@ create_framework() {
 
     cp -r "${HEADERS[@]}" "$BUILDDIR/$SDK/curl.framework/Headers"
 
-    cp "$BUILDDIR/cacert.pem" "$BUILDDIR/$SDK/curl.framework/Resources"
+    # Use the generated configuration of the last slice built for this platform.
+    if ! grep -qx '#define USE_APPLE_SECTRUST 1' "$BUILDDIR/libcurl/lib/curl_config.h"; then
+        # https://curl.se/docs/caextract.html
+        local CERTS="$BUILDDIR/cacert.pem"
+        if [ ! -f "$CERTS" ]; then
+            echo "- Download CA bundle"
+            curl -fsSL "https://curl.se/ca/cacert.pem" -o "$CERTS"
+        fi
+        cp "$CERTS" "$BUILDDIR/$SDK/curl.framework/Resources"
+    fi
     cp "$BUILDDIR/libcurl/COPYING" "$BUILDDIR/$SDK/curl.framework/Resources/curl-LICENSE.txt"
     if [ "$WITH_LIBSSH2" = 1 ]; then
         cp "$BUILDDIR/libssh2/COPYING" "$BUILDDIR/$SDK/curl.framework/Resources/libssh2-LICENSE.txt"
